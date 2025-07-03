@@ -1,12 +1,11 @@
 import argparse
 import json
-import os
 import shutil
+import sys
 import time
 import tomllib
 from datetime import datetime
 from pathlib import Path
-from sys import exit
 
 from loguru import logger
 from telethon.sync import TelegramClient
@@ -14,11 +13,20 @@ from telethon.sync import TelegramClient
 CONFIGURATION_FILE_TEMPLATE = Path(__file__).parent / "configuration-template.toml"
 CONFIGURATION_FILE = "config.toml"
 FB_MESSENGER_EXPORT_PATH = "export"
-
+FB_MESSENGER_EXPORT_FILENAME = "message_1.json"
 
 def load_configuration_from_file(configuration_file: Path) -> dict:
-    """Load configuration from a TOML file. If the file does not exist, create it from a template
-    and return an empty dictionary.
+    """Load configuration from a TOML file.
+
+    If the file does not exist, create it from a template and return an empty dictionary.
+
+    Args:
+        configuration_file (Path): Path to the configuration file.
+
+    Returns:
+        dict: Configuration data loaded from the file, or an empty dictionary if the file does not
+              exist or is empty.
+
     """
     if not configuration_file.exists():
         logger.warning(f"Configuration file not found: {configuration_file}")
@@ -35,19 +43,32 @@ def load_configuration_from_file(configuration_file: Path) -> dict:
 
 
 def load_configuration(configuration_file: Path) -> dict:
+    """Load configuration from a file and validate its content.
+
+    Args:
+        configuration_file (Path): Path to the configuration file.
+
+    Returns:
+        dict: Configuration data loaded from the file.
+
+    """
     configuration = load_configuration_from_file(configuration_file)
     if configuration == {}:
         logger.error(
             f"Configuration file is missing or incomplete. Please fill {configuration_file} in.",
         )
-        exit(1)
+        sys.exit(1)
 
     return configuration
 
 
 # === CHARGEMENT DES MESSAGES JSON ===
-def load_messages(json_file):
-    with open(json_file, encoding="utf-8") as f:
+def load_messages(
+    export_folder: Path,
+    messages_filename: str = FB_MESSENGER_EXPORT_FILENAME,
+) -> list:
+    logger.info(f"Loading messages from {messages_filename}...")
+    with (export_folder / messages_filename).open(encoding="utf-8") as f:
         data = json.load(f)
 
     messages = []
@@ -58,9 +79,9 @@ def load_messages(json_file):
         date = datetime.fromtimestamp(msg["timestamp_ms"] / 1000)
         sender = msg.get("sender_name")
         text = msg.get("content", "")
-        photos = [os.path.join(base_path, p["uri"]) for p in msg.get("photos", [])]
-        videos = [os.path.join(base_path, v["uri"]) for v in msg.get("videos", [])]
-        audios = [os.path.join(base_path, a["uri"]) for a in msg.get("audio_files", [])]
+        photos = [export_folder / p["uri"] for p in msg.get("photos", [])]
+        videos = [export_folder / v["uri"] for v in msg.get("videos", [])]
+        audios = [export_folder / a["uri"] for a in msg.get("audio_files", [])]
         reply_to = msg.get(
             "reply_to",
         )  # valeur personnalisée si elle existe (id/message key)
@@ -81,8 +102,23 @@ def load_messages(json_file):
     return sorted(messages, key=lambda x: x["date"])
 
 
+def save_messages_to_file(messages: list, output_file: Path) -> None:
+    """Save messages to a JSON file.
+
+    Useful for debugging or archiving purposes. Messages will be saved sorted by date.
+
+    Args:
+        messages (list): List of messages to save.
+        output_file (Path): Path to the output file where messages will be saved.
+
+    """
+    with output_file.open("w", encoding="utf-8") as f:
+        json.dump(messages, f, indent=4, ensure_ascii=False)
+    logger.info(f"Messages saved to {output_file}")
+
+
 # === ENVOI DANS TELEGRAM AVEC LES DEUX COMPTES ===
-async def send_conversation(messages):
+async def send_conversation(messages: list):
     # Connexion de chaque compte
     clients = {}
     for sender, conf in sender_map.items():
@@ -101,7 +137,7 @@ async def send_conversation(messages):
         sender = msg["sender"]
         client = clients.get(sender)
         if not client:
-            print(f"❌ Pas de session définie pour {sender}")
+            logger.error(f"❌ Pas de session définie pour {sender}")
             continue
 
         reply_to_id = None
@@ -125,7 +161,7 @@ async def send_conversation(messages):
 
         # Médias
         for photo in msg["photos"]:
-            if os.path.exists(photo):
+            if Path(photo).exists():
                 sent_message = await client.send_file(
                     entity,
                     photo,
@@ -133,7 +169,7 @@ async def send_conversation(messages):
                 )
 
         for video in msg["videos"]:
-            if os.path.exists(video):
+            if Path(video).exists():
                 sent_message = await client.send_file(
                     entity,
                     video,
@@ -141,7 +177,7 @@ async def send_conversation(messages):
                 )
 
         for audio in msg["audios"]:
-            if os.path.exists(audio):
+            if Path(audio).exists():
                 sent_message = await client.send_file(
                     entity,
                     audio,
@@ -158,10 +194,11 @@ async def send_conversation(messages):
     for client in clients.values():
         await client.disconnect()
 
-    print("✅ Importation terminée avec succès.")
+    logger.info("✅ Importation terminée avec succès.")
 
 
-def main():
+def main() -> None:
+    """Run the migration from Facebook Messenger to Telegram."""
     parser = argparse.ArgumentParser(
         description="Migrate Facebook Messenger conversation to Telegram.",
         epilog="written by Perceval for Bea with 💙",
@@ -182,10 +219,9 @@ def main():
     )
     args = parser.parse_args()
 
-    messages_file = Path(args.messages) / "message_1.json"
-
     configuration = load_configuration(Path(args.config))
-    messages = load_messages(messages_file)
+    messages = load_messages(Path(args.messages))
+    save_messages_to_file(messages, Path("messages.json"))
 
     with TelegramClient(
         "runner",
