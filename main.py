@@ -1,37 +1,48 @@
+from pathlib import Path
+import shutil
 from telethon.sync import TelegramClient
 import json
 from datetime import datetime
 import time
 import os
+import tomllib
+from loguru import logger
 
-# === CONFIGURATION ===
-# Remplace par les vraies valeurs
-api_id_alice = 123456
-api_hash_alice = 'API_HASH_ALICE'
-api_id_bob = 654321
-api_hash_bob = 'API_HASH_BOB'
-
-session_alice = 'alice_session'
-session_bob = 'bob_session'
+DEFAULT_CONFIGURATION_FILE    = Path(__file__).parent / 'config.toml'
+CONFIGURATION_FILE_TEMPLATE = Path(__file__).parent / 'configuration-template.toml'
 
 json_file = 'export/message_1.json'
 base_path = 'export'  # dossier racine de l'export Messenger
 destination_chat = 'nom_du_groupe_ou_du_canal'  # ID ou @username du groupe/canal cible
 
-# Nom Messenger → compte Telegram
-sender_map = {
-    'Alice Dupont': {
-        'session': session_alice,
-        'api_id': api_id_alice,
-        'api_hash': api_hash_alice
-    },
-    'Bob Martin': {
-        'session': session_bob,
-        'api_id': api_id_bob,
-        'api_hash': api_hash_bob
-    }
-}
+def load_configuration_from_file(configuration_file: Path = DEFAULT_CONFIGURATION_FILE) -> dict:
+    """
+    Charge la configuration depuis un fichier TOML.
+    :param configuration_file: Chemin vers le fichier de configuration.
+    :return: Dictionnaire de configuration.
+    """
+    if not configuration_file.exists():
+        logger.info(f"Configuration file not found: {configuration_file}")
+        logger.info("Creating one from template. Please complete the content")
+        if not CONFIGURATION_FILE_TEMPLATE.exists():
+            logger.error("Template configuration file not found.")
+            return {}
+        shutil.copy2(CONFIGURATION_FILE_TEMPLATE, configuration_file)
+        return {}
 
+    with open(configuration_file, 'rb') as f:
+        return tomllib.load(f)
+
+
+def load_configuration() -> dict:
+    configuration =  load_configuration_from_file()
+    if configuration == {}:
+        logger.error("Configuration file is missing or incomplete. Please check the template.")
+        exit(1)
+
+    return configuration
+
+    
 
 # === CHARGEMENT DES MESSAGES JSON ===
 def load_messages(json_file):
@@ -70,7 +81,7 @@ async def send_conversation(messages):
     # Connexion de chaque compte
     clients = {}
     for sender, conf in sender_map.items():
-        client = TelegramClient(conf['session'], conf['api_id'], conf['api_hash'])
+        client = TelegramClient(conf['name'], conf['api_id'], conf['api_hash'])
         await client.start()
         clients[sender] = client
 
@@ -145,9 +156,10 @@ async def send_conversation(messages):
 
 if __name__ == '__main__':
     print("Hello from fb-messenger-to-telegram!")
+    configuration = load_configuration()
 
     messages = load_messages(json_file)
 
-    with TelegramClient('runner', api_id_alice, api_hash_alice) as runner:
+    with TelegramClient('runner', configuration["user1_api_id"], configuration["user1_api_hash"]) as runner:
         runner.loop.run_until_complete(send_conversation(messages))
 
