@@ -1,0 +1,13 @@
+# fbm to telegram configuration template
+# holds secret keys and user information
+
+[users.1]
+name = "Alice"
+api_id = 123456
+api_hash = "API_HASH_ALICE"
+
+[users.2]
+name = "Bob"
+api_id = 654321
+api_hash = "API_HASH_BOB"
+
