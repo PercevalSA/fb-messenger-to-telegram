@@ -1,0 +1,10 @@
+{
+    "recommendations": [
+        "charliermarsh.ruff",
+        "kevinrose.vsc-python-indent",
+        "ms-python.python",
+        "njpwerner.autodocstring",
+        "tamasfe.even-better-toml"
+    ]
+}
+

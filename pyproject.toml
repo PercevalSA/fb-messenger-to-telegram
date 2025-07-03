@@ -8,3 +8,50 @@ dependencies = [
     "loguru>=0.7.3",
     "telethon>=1.40.0",
 ]
+
+[tool.ruff]
+line-length = 90
+indent-width = 4
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "N",    # pep8-naming
+    "D",    # pydocstring
+    "UP",   # pyupgrade
+    "C90",  # McCabe complexity
+    "ANN",  # flake8-annotations
+    "ASYNC",# flake8-asyncio
+    "S",    # flake8-bandit
+    "T",    # flake8-type-checking
+    "B",    # flake8-bugbear
+    "A",    # flake8-builtins
+    "COM",  # flake8-commas
+    "C4",   # flake8-comprehensions
+    "ISC",  # flake8-implicit-str-concat
+    "PIE",  # flake8-pie
+    "Q",    # flake8-quotes
+    "SIM",  # flake8-simplify
+    "PTH",  # flake8-use-pathlib
+    "ERA",  # eradicate
+    "PL",   # pylint
+    "RUF",  # ruff-specific
+]
+
+ignore = [
+    "D100",  # Missing docstring in public module
+    "D104",  # Missing docstring in public package
+    "ANN101", # Missing type annotation for self
+    "ANN102", # Missing type annotation for cls
+]
+
+[tool.ruff.format]
+docstring-code-format = false
+
+[dependency-groups]
+dev = [
+    "ruff>=0.12.1",
+]
