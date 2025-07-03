@@ -16,7 +16,6 @@ CONFIGURATION_FILE = "config.toml"
 FB_MESSENGER_EXPORT_PATH = "export"
 
 
-
 def load_configuration_from_file(configuration_file: Path) -> dict:
     """Load configuration from a TOML file. If the file does not exist, create it from a template
     and return an empty dictionary.
@@ -39,7 +38,7 @@ def load_configuration(configuration_file: Path) -> dict:
     configuration = load_configuration_from_file(configuration_file)
     if configuration == {}:
         logger.error(
-            f"Configuration file is missing or incomplete. Please fill {configuration_file} in."
+            f"Configuration file is missing or incomplete. Please fill {configuration_file} in.",
         )
         exit(1)
 
@@ -48,7 +47,7 @@ def load_configuration(configuration_file: Path) -> dict:
 
 # === CHARGEMENT DES MESSAGES JSON ===
 def load_messages(json_file):
-    with open(json_file, "r", encoding="utf-8") as f:
+    with open(json_file, encoding="utf-8") as f:
         data = json.load(f)
 
     messages = []
@@ -63,7 +62,7 @@ def load_messages(json_file):
         videos = [os.path.join(base_path, v["uri"]) for v in msg.get("videos", [])]
         audios = [os.path.join(base_path, a["uri"]) for a in msg.get("audio_files", [])]
         reply_to = msg.get(
-            "reply_to"
+            "reply_to",
         )  # valeur personnalisée si elle existe (id/message key)
 
         messages.append(
@@ -76,7 +75,7 @@ def load_messages(json_file):
                 "audios": audios,
                 "date": date,
                 "reply_to": reply_to,
-            }
+            },
         )
 
     return sorted(messages, key=lambda x: x["date"])
@@ -119,26 +118,35 @@ async def send_conversation(messages):
 
         if final_text:
             sent_message = await client.send_message(
-                entity, final_text, reply_to=reply_to_id
+                entity,
+                final_text,
+                reply_to=reply_to_id,
             )
 
         # Médias
         for photo in msg["photos"]:
             if os.path.exists(photo):
                 sent_message = await client.send_file(
-                    entity, photo, reply_to=reply_to_id
+                    entity,
+                    photo,
+                    reply_to=reply_to_id,
                 )
 
         for video in msg["videos"]:
             if os.path.exists(video):
                 sent_message = await client.send_file(
-                    entity, video, reply_to=reply_to_id
+                    entity,
+                    video,
+                    reply_to=reply_to_id,
                 )
 
         for audio in msg["audios"]:
             if os.path.exists(audio):
                 sent_message = await client.send_file(
-                    entity, audio, voice_note=True, reply_to=reply_to_id
+                    entity,
+                    audio,
+                    voice_note=True,
+                    reply_to=reply_to_id,
                 )
 
         # Enregistrer l'ID Telegram du message envoyé
@@ -174,12 +182,15 @@ def main():
     )
     args = parser.parse_args()
 
-    messages_file = Path(args.messages) / "message_1.json" 
-    configuration = load_configuration(args.config)
+    messages_file = Path(args.messages) / "message_1.json"
+
+    configuration = load_configuration(Path(args.config))
     messages = load_messages(messages_file)
 
     with TelegramClient(
-        "runner", configuration["user1_api_id"], configuration["user1_api_hash"]
+        "runner",
+        configuration["user1_api_id"],
+        configuration["user1_api_hash"],
     ) as runner:
         runner.loop.run_until_complete(send_conversation(messages))
 
