@@ -1,5 +1,4 @@
 import argparse
-import asyncio
 import json
 import shutil
 import sys
@@ -198,6 +197,22 @@ async def send_conversation(messages: list) -> None:
     logger.info("✅ Importation terminée avec succès.")
 
 
+def finding_messages_export_folder() -> Path:
+    """Crall recursively folders in the current directory and try to find the export folder
+
+    the export folder is something like your_facebook_activity/messages
+    """
+    current_dir = Path.cwd()
+    for item in current_dir.rglob("your_facebook_activity/messages"):
+        if item.is_dir():
+            logger.info(f"Export folder found: {item}")
+            return item
+
+    logger.error(
+        "Export folder not found. Please ensure export folder exists in the current directory.",
+    )
+
+
 def main() -> None:
     """Run the migration from Facebook Messenger to Telegram."""
     parser = argparse.ArgumentParser(
@@ -220,6 +235,13 @@ def main() -> None:
     )
     args = parser.parse_args()
 
+    export_folder = finding_messages_export_folder()
+
+    direct_messages = export_folder / "e2ee_cutover"
+    group_messages = export_folder / "inbox"
+    logger.info(
+        f"Direct messages path: {direct_messages}\nGroup messages path: {group_messages}",
+    )
     configuration = load_configuration(Path(args.config))
     messages = load_messages(Path(args.messages))
     save_messages_to_file(messages, Path("messages.json"))
