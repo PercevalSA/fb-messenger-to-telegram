@@ -1,8 +1,8 @@
 import argparse
+import asyncio
 import json
 import shutil
 import sys
-import time
 import tomllib
 from datetime import datetime
 from pathlib import Path
@@ -15,6 +15,7 @@ CONFIGURATION_FILE = "config.toml"
 FB_MESSENGER_EXPORT_PATH = "export"
 FB_MESSENGER_EXPORT_FILENAME = "message_1.json"
 
+
 def load_configuration_from_file(configuration_file: Path) -> dict:
     """Load configuration from a TOML file.
 
@@ -24,8 +25,8 @@ def load_configuration_from_file(configuration_file: Path) -> dict:
         configuration_file (Path): Path to the configuration file.
 
     Returns:
-        dict: Configuration data loaded from the file, or an empty dictionary if the file does not
-              exist or is empty.
+        dict: Configuration data loaded from the file, or an empty dictionary if the file
+              does not exist or is empty.
 
     """
     if not configuration_file.exists():
@@ -38,7 +39,7 @@ def load_configuration_from_file(configuration_file: Path) -> dict:
         shutil.copy2(CONFIGURATION_FILE_TEMPLATE, configuration_file)
         return {}
 
-    with open(configuration_file, "rb") as f:
+    with configuration_file.open("rb") as f:
         return tomllib.load(f)
 
 
@@ -55,7 +56,7 @@ def load_configuration(configuration_file: Path) -> dict:
     configuration = load_configuration_from_file(configuration_file)
     if configuration == {}:
         logger.error(
-            f"Configuration file is missing or incomplete. Please fill {configuration_file} in.",
+            f"Configuration file is incomplete. Please fill {configuration_file}",
         )
         sys.exit(1)
 
@@ -118,7 +119,7 @@ def save_messages_to_file(messages: list, output_file: Path) -> None:
 
 
 # === ENVOI DANS TELEGRAM AVEC LES DEUX COMPTES ===
-async def send_conversation(messages: list):
+async def send_conversation(messages: list) -> None:
     # Connexion de chaque compte
     clients = {}
     for sender, conf in sender_map.items():
@@ -189,7 +190,7 @@ async def send_conversation(messages: list):
         if sent_message:
             message_map[msg["id"]] = sent_message.id
 
-        time.sleep(0.5)
+        await asyncio.sleep(0.5)
 
     for client in clients.values():
         await client.disconnect()
