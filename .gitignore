@@ -1,6 +1,8 @@
 # FB export
 *.zip
 *facebook*
+config.toml
+messages.json
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
