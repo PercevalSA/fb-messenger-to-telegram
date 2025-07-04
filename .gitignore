@@ -4,6 +4,16 @@
 config.toml
 messages.json
 
+# telethon session files
+*.session
+
+# images
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
