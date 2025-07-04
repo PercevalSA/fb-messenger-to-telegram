@@ -3,7 +3,6 @@ import json
 import shutil
 import sys
 import tomllib
-from datetime import datetime
 from pathlib import Path
 
 from loguru import logger
@@ -122,7 +121,7 @@ def load_messages(
     messages_filename: str = FB_MESSENGER_EXPORT_FILENAME,
 ) -> list:
     logger.info(f"Loading messages from {messages_filename}...")
-    with (export_folder / messages_filename).open(encoding="utf-8") as f:
+    with (export_folder / messages_filename).open("r", encoding="utf-8") as f:
         data = json.load(f)
 
     # check direct conv
@@ -134,23 +133,19 @@ def load_messages(
         sys.exit(1)
 
     messages = []
-    for idx, msg in enumerate(data.get("messages", [])):
-        if msg.get("type") != "Generic":
-            continue
-
-        date = datetime.fromtimestamp(msg["timestamp_ms"] / 1000)
+    for msg in data.get("messages", []):
+        date = msg["timestamp_ms"]  # datetime.fromtimestamp(msg["timestamp_ms"] / 1000)
         sender = msg.get("sender_name")
         text = msg.get("content", "")
-        photos = [export_folder / p["uri"] for p in msg.get("photos", [])]
-        videos = [export_folder / v["uri"] for v in msg.get("videos", [])]
-        audios = [export_folder / a["uri"] for a in msg.get("audio_files", [])]
+        photos = [p["uri"] for p in msg.get("photos", [])]
+        videos = [v["uri"] for v in msg.get("videos", [])]
+        audios = [a["uri"] for a in msg.get("audio_files", [])]
         reply_to = msg.get(
             "reply_to",
         )  # valeur personnalisée si elle existe (id/message key)
 
         messages.append(
             {
-                "id": idx,  # ID interne
                 "sender": sender,
                 "text": text,
                 "photos": photos,
@@ -160,24 +155,25 @@ def load_messages(
                 "reply_to": reply_to,
             },
         )
-
     logger.debug(f"Loaded {len(messages)} messages from {messages_filename}")
 
-    return sorted(messages, key=lambda x: x["date"])
+    return messages
 
 
-def save_messages_to_file(messages: list, output_file: Path) -> None:
+def save_messages_to_file(messages: list[dict], output_file: Path) -> None:
     """Save messages to a JSON file.
 
     Useful for debugging or archiving purposes. Messages will be saved sorted by date.
 
     Args:
-        messages (list): List of messages to save.
+        messages (list[dict]): List of messages to save.
         output_file (Path): Path to the output file where messages will be saved.
 
     """
+    logger.debug(messages)
     with output_file.open("w", encoding="utf-8") as f:
-        json.dump(messages, f, indent=4, ensure_ascii=False)
+        # ensure_ascii=True to keep Unicode characters as-is (like emojis)
+        json.dump(messages, f, indent=4, ensure_ascii=True)
     logger.info(f"Messages saved to {output_file}")
 
 
@@ -308,7 +304,6 @@ def main() -> None:
         "--username",
         "-u",
         type=str,
-        default="",
         help="Username of the Facebook account for finding messages: surname and name without accents sticked together",
     )
     args = parser.parse_args()
@@ -337,6 +332,7 @@ def main() -> None:
 
     save_messages_to_file(messages, Path.cwd() / "messages.json")
 
+    sys.exit(0)
     with TelegramClient(
         "runner",
         configuration["user1_api_id"],
