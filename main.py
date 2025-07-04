@@ -11,7 +11,6 @@ from telethon.sync import TelegramClient
 
 CONFIGURATION_FILE_TEMPLATE = Path(__file__).parent / "configuration-template.toml"
 CONFIGURATION_FILE = "config.toml"
-FB_MESSENGER_EXPORT_PATH = "export"
 FB_MESSENGER_EXPORT_FILENAME = "message_1.json"
 
 
@@ -62,7 +61,62 @@ def load_configuration(configuration_file: Path) -> dict:
     return configuration
 
 
-# === CHARGEMENT DES MESSAGES JSON ===
+"""
+FOLDER HIERARCHY:
+
+your_facebook_activity/messages/e2ee_cutover
+├── username_<userid_int>
+│   ├── audio
+│   │   ├── audioclip174505167400033691_1432813888161410.mp4
+│   │   └── audioclip17450517150008568_2214026662384824.mp4
+│   ├── message_1.json
+│   ├── photos
+│   │   └── 491010253_1380232929859346_9172913065121913888_n_1380232926526013.jpg
+│   └── videos
+│       └── 491479191_9637673916315694_3568367626553686238_n_697954715998034.mp4
+
+direct messages are stored in the "e2ee_cutover" folder
+while group messages are stored in the "inbox" folder
+"""
+
+
+def user_conversation_folder_path(export_folder: Path, username: str) -> Path:
+    """Get the path to the messages folder for a specific user.
+
+    This folder stores the messages exported from Facebook Messenger for the specified user
+    in a file named `message_1.json` and other media files (photos, videos, audios) in
+    dedicated subfolders.
+
+    Args:
+        export_folder (Path): Path to the export folder.
+        username (str): Username of the Facebook account.
+
+    Returns:
+        Path: Path to the messages folder for the specified user.
+
+    """
+    direct_conversations_folder = (
+        export_folder / "your_facebook_activity/messages/e2ee_cutover"
+    )
+
+    # find folder starting with the username in e2ee_cutover
+    messages_folder = next(
+        (
+            folder
+            for folder in direct_conversations_folder.iterdir()
+            if folder.is_dir() and folder.name.startswith(username)
+        ),
+        None,
+    )
+
+    if not messages_folder:
+        logger.error(f"Messages folder not found: {messages_folder}")
+        sys.exit(1)
+
+    logger.info(f"Messages folder found: {messages_folder}")
+    return messages_folder
+
+
 def load_messages(
     export_folder: Path,
     messages_filename: str = FB_MESSENGER_EXPORT_FILENAME,
@@ -70,6 +124,14 @@ def load_messages(
     logger.info(f"Loading messages from {messages_filename}...")
     with (export_folder / messages_filename).open(encoding="utf-8") as f:
         data = json.load(f)
+
+    # check direct conv
+    if len(data["participants"]) != 2:
+        logger.error(
+            "This script is designed to migrate direct conversations only. "
+            "Please ensure the conversation is a direct one.",
+        )
+        sys.exit(1)
 
     messages = []
     for idx, msg in enumerate(data.get("messages", [])):
@@ -98,6 +160,8 @@ def load_messages(
                 "reply_to": reply_to,
             },
         )
+
+    logger.debug(f"Loaded {len(messages)} messages from {messages_filename}")
 
     return sorted(messages, key=lambda x: x["date"])
 
@@ -197,19 +261,25 @@ async def send_conversation(messages: list) -> None:
     logger.info("✅ Importation terminée avec succès.")
 
 
-def finding_messages_export_folder() -> Path:
-    """Crall recursively folders in the current directory and try to find the export folder
+def find_facebook_export_folder() -> Path | None:
+    """Try to find the facebook export folder in the current directory.
 
-    the export folder is something like your_facebook_activity/messages
+    The export folder contains a subfolder named 'your_facebook_activity' which contains
+    the exported messages and media files.
+
+    Returns:
+        Path: Path to the export folder if found, otherwise logs an error and exits.
+
     """
     current_dir = Path.cwd()
-    for item in current_dir.rglob("your_facebook_activity/messages"):
+    for item in current_dir.rglob("your_facebook_activity"):
         if item.is_dir():
-            logger.info(f"Export folder found: {item}")
-            return item
+            logger.info(f"Export folder found: {item.parent}")
+            return item.parent
 
     logger.error(
-        "Export folder not found. Please ensure export folder exists in the current directory.",
+        "Export folder not found. ",
+        "Please ensure export folder exists in the current directory.",
     )
 
 
@@ -227,24 +297,45 @@ def main() -> None:
         help="Path to the configuration file",
     )
     parser.add_argument(
-        "--messages",
-        "-m",
+        "--export-folder",
+        "-f",
+        "--data",
+        "-d",
         type=str,
-        default=FB_MESSENGER_EXPORT_PATH,
-        help="Path to the folder containing exported fb messages",
+        help="Path to the folder containing exported facebook data (including messages)",
+    )
+    parser.add_argument(
+        "--username",
+        "-u",
+        type=str,
+        default="",
+        help="Username of the Facebook account for finding messages: surname and name without accents sticked together",
     )
     args = parser.parse_args()
 
-    export_folder = finding_messages_export_folder()
-
-    direct_messages = export_folder / "e2ee_cutover"
-    group_messages = export_folder / "inbox"
-    logger.info(
-        f"Direct messages path: {direct_messages}\nGroup messages path: {group_messages}",
-    )
     configuration = load_configuration(Path(args.config))
-    messages = load_messages(Path(args.messages))
-    save_messages_to_file(messages, Path("messages.json"))
+
+    # parse export
+    if not args.export_folder:
+        logger.info(
+            "Export folder not specified. Trying to find it in the current directory.",
+        )
+        export_folder = find_facebook_export_folder()
+        if not export_folder:
+            logger.error(
+                "Export folder not found. Please ensure export folder exists in the current directory.",
+            )
+            sys.exit(1)
+    else:
+        export_folder = Path(args.export_folder).resolve()
+        if not export_folder.exists():
+            logger.error(f"Export folder does not exist: {export_folder}")
+            sys.exit(1)
+
+    user_conv_path = user_conversation_folder_path(export_folder, args.username)
+    messages = load_messages(user_conv_path)
+
+    save_messages_to_file(messages, Path.cwd() / "messages.json")
 
     with TelegramClient(
         "runner",
