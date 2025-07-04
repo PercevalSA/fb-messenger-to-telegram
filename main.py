@@ -304,7 +304,19 @@ def main() -> None:
         "--username",
         "-u",
         type=str,
-        help="Username of the Facebook account for finding messages: surname and name without accents sticked together",
+        default="morganebnn",
+        help="Username of the Facebook account for finding messages: "
+        "surname and name without accents sticked together",
+    )
+    parser.add_argument(
+        "--telegram-chat",
+        "-t",
+        "--chat",
+        "-c",
+        type=str,
+        help="Telegram chat to send messages to. "
+        "Can be a username, channel ID, or group ID. "
+        "Useful for testing in a dedicated chat.",
     )
     args = parser.parse_args()
 
