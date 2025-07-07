@@ -186,3 +186,14 @@ def extract_conversation_from_export_folder(
     save_conversation_to_file(messages, Path.cwd() / "messages.json")
 
     return messages
+
+
+def conversation_pretty_print(conversation: list[dict]) -> None:
+    """Print conversation stored in our file.
+
+    Args:
+        conversation (list[dict]): List of messages in the conversation.
+
+    """
+    for message in conversation:
+        print(f"{message['sender']}: {message['text']}")

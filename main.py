@@ -6,7 +6,7 @@ from pathlib import Path
 
 from loguru import logger
 
-from messenger import extract_conversation_from_export_folder
+from messenger import conversation_pretty_print, extract_conversation_from_export_folder
 
 CONFIGURATION_FILE_TEMPLATE = Path(__file__).parent / "configuration-template.toml"
 CONFIGURATION_FILE = "config.toml"
@@ -111,7 +111,7 @@ def main() -> None:
         arguments.username,
     )
 
-    print(conversation)
+    conversation_pretty_print(conversation)
 
     telegram_user = configuration["users"]["sender"]["name"]
     print(f"Extracted conversation for user: {telegram_user}")
