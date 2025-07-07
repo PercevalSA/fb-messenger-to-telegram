@@ -82,16 +82,15 @@ def parse_cli_arguments() -> argparse.Namespace:
     parser.add_argument(
         "--username",
         "-u",
+        "--recipient",
+        "-r",
         type=str,
-        default="morganebnn",
         help="Username of the Facebook account for finding messages: "
         "surname and name without accents sticked together",
     )
     parser.add_argument(
         "--telegram-chat",
         "-t",
-        "--chat",
-        "-c",
         type=str,
         help="Telegram chat to send messages to. "
         "Can be a username, channel ID, or group ID. "
@@ -106,11 +105,16 @@ def main() -> None:
     """Run the migration from Facebook Messenger to Telegram."""
     arguments = parse_cli_arguments()
     configuration = load_configuration(Path(arguments.config))
-    extract_conversation_from_export_folder(
+
+    conversation = extract_conversation_from_export_folder(
         arguments.export_folder,
-        configuration["user1"]["name"],
+        arguments.username,
     )
 
+    print(conversation)
+
+    telegram_user = configuration["users"]["sender"]["name"]
+    print(f"Extracted conversation for user: {telegram_user}")
 
 if __name__ == "__main__":
     main()

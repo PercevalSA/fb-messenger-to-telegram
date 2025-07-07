@@ -52,7 +52,7 @@ def user_conversation_folder_path(export_folder: Path, username: str) -> Path:
     )
 
     if not messages_folder:
-        logger.error(f"Messages folder not found: {messages_folder}")
+        logger.error(f"Messages folder not found in {direct_conversations_folder}")
         sys.exit(1)
 
     logger.info(f"Messages folder found: {messages_folder}")
