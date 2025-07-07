@@ -9,6 +9,7 @@ from telethon import TelegramClient
 # the session file is named <client_name>.session
 # as we will send messages on 2 users' behalf, we will need to create 2 clients
 
+
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Telegram Bot Example")
     parser.add_argument("--name", type=str, help="Name of the Telegram client")
